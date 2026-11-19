@@ -1,0 +1,17 @@
+{
+  "name": "c-course",
+  "private": true,
+  "type": "module",
+  "description": "Пошаговый курс программирования на C с интервальными повторениями",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "check": "node tools/build.mjs --run-solutions",
+    "serve": "node tools/serve.mjs"
+  },
+  "devDependencies": {
+    "docx": "^9.5.1",
+    "highlight.js": "11.11.1",
+    "katex": "0.16.22",
+    "marked": "15.0.12"
+  }
+}
