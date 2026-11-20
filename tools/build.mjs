@@ -232,6 +232,35 @@ for (const f of files) {
   modules.push(mod);
 }
 const extra = (await import(pathToFileURL(path.join(contentDir, 'extra.mjs')).href)).default;
+// прикладные задачи и фрагменты видео — отдельными файлами, вливаются в уроки
+const applied = (await import(pathToFileURL(path.join(contentDir, 'applied.mjs')).href)).default;
+const clipsMod = fs.existsSync(path.join(contentDir, 'clips.mjs')) ? await import(pathToFileURL(path.join(contentDir, 'clips.mjs')).href) : {};
+const clips = clipsMod.default || {};
+for (const m of modules) for (const l of m.lessons) {
+  const extraLinks = (clipsMod.lessonLinks || {})[l.id];
+  if (extraLinks) l.links = [...(l.links || []), ...extraLinks];
+}
+{
+  const all = new Map();
+  for (const m of modules) for (const l of m.lessons) all.set(l.id, l);
+  for (const [lid, tasks] of Object.entries(applied)) {
+    const l = all.get(lid);
+    if (!l) throw new Error('applied.mjs: нет урока ' + lid);
+    l.tasks = [...(l.tasks || []), ...tasks];
+  }
+  // clips: { lessonId: [ { id, start, end, title?, author?, dur?, note?, add?: true } ] }
+  //   без add — уточняет уже подключённое видео (фрагмент), с add — добавляет новое
+  for (const [lid, list] of Object.entries(clips)) {
+    const l = all.get(lid);
+    if (!l) throw new Error('clips.mjs: нет урока ' + lid);
+    l.videos = l.videos || [];
+    for (const cl of list) {
+      const i = l.videos.findIndex(v => v.id === cl.id && v.start == null);
+      if (!cl.add && i >= 0) l.videos[i] = { ...l.videos[i], ...cl };
+      else if (cl.first) l.videos.unshift(cl); else l.videos.push(cl);
+    }
+  }
+}
 
 // все «страницы» с теорией: уроки, лабы, справочник
 const pages = [];
@@ -362,7 +391,7 @@ function renderQuiz(quiz, ctx) {
 }
 function renderTask(task, ctx) {
   return {
-    id: task.id, title: task.title, req: !!task.req, level: task.level || 1,
+    id: task.id, title: task.title, req: !!task.req, level: task.level || 1, applied: !!task.applied,
     text: convert(task.text, ctx, { nested: true }),
     starter: (task.starter ?? DEFAULT_STARTER).replace(/^\n/, ''),
     solution: task.solution.replace(/^\n/, ''),

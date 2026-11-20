@@ -294,17 +294,26 @@
   }
 
   /* ---------- видео ---------- */
+  function mmss(sec) { sec = Math.round(sec); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  function videoKey(v) { return v.start != null ? v.id + '@' + v.start : v.id; }
   function videoBlock(v, st, big) {
-    var seen = st && st.videos && st.videos[v.id];
-    return '<div class="video" data-yt="' + esc(v.id) + '"><div class="frame"><img src="https://i.ytimg.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt="" loading="lazy"><button class="play" type="button" aria-label="Смотреть: ' + esc(v.title) + '"><span></span></button></div>'
-      + '<div><div class="vt">' + esc(v.title) + '</div><div class="va">' + esc(v.author) + (v.dur ? ' · ' + esc(v.dur) : '') + ' · <a href="https://www.youtube.com/watch?v=' + esc(v.id) + '" target="_blank" rel="noopener">YouTube ↗</a></div>'
-      + (st ? '<label class="vcheck"><input type="checkbox" data-seen="' + esc(v.id) + '"' + (seen ? ' checked' : '') + '> просмотрено</label>' : '') + '</div></div>';
+    var key = videoKey(v);
+    var seen = st && st.videos && st.videos[key];
+    var clip = v.start != null;
+    var len = clip && v.end ? Math.round((v.end - v.start) / 60) : 0;
+    var badge = clip ? '<span class="clip-badge">✂ фрагмент ' + mmss(v.start) + (v.end ? '–' + mmss(v.end) : '…') + (len ? ' · ' + len + ' мин' : '') + '</span>' : '';
+    var link = 'https://www.youtube.com/watch?v=' + esc(v.id) + (clip ? '&t=' + v.start + 's' : '');
+    return '<div class="video" data-yt="' + esc(v.id) + '"' + (clip ? ' data-start="' + v.start + '"' + (v.end ? ' data-end="' + v.end + '"' : '') : '') + '><div class="frame"><img src="https://i.ytimg.com/vi/' + esc(v.id) + '/hqdefault.jpg" alt="" loading="lazy"><button class="play" type="button" aria-label="Смотреть: ' + esc(v.title) + '"><span></span></button>' + badge + '</div>'
+      + '<div><div class="vt">' + esc(v.title) + '</div><div class="va">' + esc(v.author) + (v.dur ? ' · ' + (clip ? 'весь ролик ' : '') + esc(v.dur) : '') + ' · <a href="' + link + '" target="_blank" rel="noopener">YouTube ↗</a></div>'
+      + (v.note ? '<div class="vnote">' + esc(v.note) + '</div>' : '')
+      + (st ? '<label class="vcheck"><input type="checkbox" data-seen="' + esc(key) + '"' + (seen ? ' checked' : '') + '> просмотрено</label>' : '') + '</div></div>';
   }
   function bindVideos(root, st) {
     $$('.video .play', root).forEach(function (b) {
       b.onclick = function () {
         var box = b.closest('.video'), id = box.dataset.yt, fr = box.querySelector('.frame');
-        fr.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0" title="YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+        var q = 'autoplay=1&rel=0' + (box.dataset.start ? '&start=' + box.dataset.start : '') + (box.dataset.end ? '&end=' + box.dataset.end : '');
+        fr.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?' + q + '" title="YouTube" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
       };
     });
     $$('[data-seen]', root).forEach(function (c) { c.onchange = function () { st.videos[c.dataset.seen] = c.checked ? S.today() : undefined; if (!c.checked) delete st.videos[c.dataset.seen]; S.save(); }; });
@@ -440,7 +449,12 @@
   /* ---------- практика ---------- */
   function renderPractice(el, l, x) {
     el.innerHTML = '<div class="notice" style="margin-bottom:16px"><b>Как сдавать:</b> пиши код в редакторе (или в Visual Studio и вставляй сюда) и жми «Проверить» — программа будет запущена на всех тестах. Выводи <b>ровно то, что в примере</b>, без подсказок ввода. Горячая клавиша: Ctrl+Enter.</div>';
-    l.tasks.forEach(function (t, i) {
+    var core = l.tasks.filter(function (t) { return !t.applied; }), extra = l.tasks.filter(function (t) { return t.applied; });
+    var ordered = core.concat(extra);
+    ordered.forEach(function (t, i) {
+      if (t.applied && (i === 0 || !ordered[i - 1].applied)) {
+        el.insertAdjacentHTML('beforeend', '<h2 class="applied-head">🛠 Прикладные задачи</h2><p class="muted">Задачи «из жизни»: деньги, карты, сети, игры, тексты, файлы. Для зачёта урока не обязательны, но именно на них видно, зачем всё это нужно.</p>');
+      }
       var box = document.createElement('div'); box.style.marginTop = i ? '18px' : '0';
       el.appendChild(box);
       renderTask(box, t, { owner: l.id, kind: 'lesson', num: i + 1, onSolved: function () {
@@ -457,10 +471,11 @@
   function renderTask(el, t, ctx) {
     var key = ctx.kind + ':' + ctx.owner + ':' + t.id;
     var solved = ctx.kind === 'exam' ? !!(S.state.exam.tasks && S.state.exam.tasks[t.id]) : S.taskSolved(ctx.owner, t.id, ctx.kind);
-    var fails = 0, hintN = 0;
+    var useAI = !!window.AI && ctx.kind !== 'exam';
+    var fails = window.AI ? AI.status(key, 0).fails : 0, hintN = 0, lastResult = '';
     var card = document.createElement('div'); card.className = 'card task';
     card.innerHTML = '<div class="task-head"><span class="pill">' + (ctx.num ? 'Задача ' + ctx.num : 'Задача') + '</span><h3>' + esc(t.title) + '</h3>'
-      + (t.req ? '<span class="pill warn">обязательная</span>' : '<span class="pill">дополнительная</span>')
+      + (t.req ? '<span class="pill warn">обязательная</span>' : t.applied ? '<span class="pill acc">прикладная</span>' : '<span class="pill">дополнительная</span>')
       + '<span class="pill">' + '★★★'.slice(0, t.level || 1) + '<span style="opacity:.3">' + '★★★'.slice(0, 3 - (t.level || 1)) + '</span></span>'
       + '<span class="solved-pill" style="margin-left:auto">' + (solved ? '<span class="pill ok">✓ решено</span>' : '') + '</span></div>'
       + '<div class="task-body"><div class="prose">' + t.text + '</div>'
@@ -469,7 +484,7 @@
       + (t.hints && t.hints.length ? '<button class="btn ghost act-hint" type="button">💡 Подсказка (' + t.hints.length + ')</button>' : '')
       + '<button class="btn ghost act-sol" type="button">Решение</button><button class="btn ghost act-reset" type="button" title="Вернуть исходный код">Сбросить</button></div>'
       + '<div class="stdin-box"><div class="small muted" style="margin:6px 0 4px">Ввод для программы (stdin):</div><textarea spellcheck="false">' + esc(t.tests[0] ? t.tests[0].in : '') + '</textarea><div class="row" style="margin-top:6px"><button class="btn sm primary act-run2" type="button">▶ Запустить</button></div></div>'
-      + '<div class="hints"></div><div class="results"></div></div>';
+      + '<div class="hints"></div><div class="results"></div><div class="ai-box"></div></div>';
     el.appendChild(card);
     var ta = $('textarea.code-input', card);
     ta.value = S.getCode(key) || t.starter;
@@ -485,14 +500,14 @@
         },
       });
       var saveT;
-      cm.on('change', function () { clearTimeout(saveT); saveT = setTimeout(function () { S.setCode(key, cm.getValue()); }, 400); });
+      cm.on('change', function () { clearTimeout(saveT); saveT = setTimeout(function () { S.setCode(key, cm.getValue()); if (useAI) { AI.touch(key); updAI(); } }, 400); });
       setTimeout(function () { cm.refresh(); }, 50);
     } else {
       ta.addEventListener('keydown', function (e) {
         if (e.key === 'Tab') { e.preventDefault(); var s = ta.selectionStart; ta.value = ta.value.slice(0, s) + '    ' + ta.value.slice(ta.selectionEnd); ta.selectionStart = ta.selectionEnd = s + 4; }
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doCheck(); }
       });
-      ta.addEventListener('input', function () { S.setCode(key, ta.value); });
+      ta.addEventListener('input', function () { S.setCode(key, ta.value); if (useAI) AI.touch(key); });
     }
     function getCode() { return cm ? cm.getValue() : ta.value; }
     function setCode(v) { if (cm) cm.setValue(v); else ta.value = v; S.setCode(key, v); }
@@ -524,6 +539,8 @@
     function showCheck(r) {
       if (r.compileError) {
         fails++;
+        lastResult = 'Ошибка компиляции:\n' + r.compiler;
+        if (useAI) AI.fail(key);
         $res.innerHTML = '<div class="res no"><div class="rh">✗ Ошибка компиляции</div><pre class="err">' + esc(r.compiler) + '</pre><div class="small muted" style="margin-top:6px">Номер строки — после <code>main.c:</code>. Исправляй первую ошибку и проверяй снова.</div></div>';
         updSol(); return;
       }
@@ -532,6 +549,10 @@
         h += '<div class="res ok"><div class="rh">✓ Все тесты пройдены (' + r.total + '/' + r.total + ')' + (solved ? '' : ' — задача решена!') + '</div></div>';
       } else {
         fails++;
+        if (useAI) AI.fail(key);
+        var bad = r.results.find(function (x) { return !x.ok && !x.error; });
+        lastResult = 'Пройдено тестов: ' + r.passed + ' из ' + r.total + '.' + (bad ? '\nПервый непройденный тест.\nВвод:\n' + (bad.test.in || '(пусто)') + '\nОжидается:\n' + bad.test.out + '\nВывод программы:\n' + (bad.stdout || '(пусто)') + (bad.timedOut ? '\n(превышено время)' : bad.crashed ? '\n(аварийное завершение, код ' + bad.code + ')' : '') : '');
+        if (r.warnings) lastResult += '\nПредупреждения компилятора:\n' + r.warnings;
         h += '<div class="res no"><div class="rh">✗ Пройдено ' + r.passed + ' из ' + r.total + '</div></div>';
       }
       if (r.warnings) h += '<details class="res"><summary class="small"><b>Предупреждения компилятора</b> — стоит посмотреть</summary><pre>' + esc(r.warnings) + '</pre></details>';
@@ -573,6 +594,43 @@
     function updSol() {
       var b = $('.act-sol', card);
       b.title = solved || fails >= 3 ? 'Показать эталонное решение' : 'Решение откроется после 3 неудачных проверок или после решения';
+      updAI();
+    }
+    /* ИИ-наставник: открывается, только когда задача долго не получается */
+    var aiBusy = false;
+    function updAI() {
+      var box = $('.ai-box', card);
+      if (!useAI || solved) { box.innerHTML = ''; return; }
+      var hintsLeft = (t.hints || []).length - hintN;
+      var st = AI.status(key, hintsLeft);
+      if (!st.open) {
+        if (st.fails === 0 && st.minutes < 5) { box.innerHTML = ''; return; }
+        if (box.dataset.state === 'locked:' + st.left.join()) return;
+        box.dataset.state = 'locked:' + st.left.join();
+        box.innerHTML = '<div class="ai-locked small muted">🤖 ИИ-наставник поможет, если задача долго не получается. Осталось: ' + esc(st.left.join(', ')) + '. Сейчас: ' + st.minutes + ' мин, ' + st.fails + ' неудачн. проверк.</div>';
+        return;
+      }
+      if (box.dataset.state === 'open' || aiBusy) return;
+      box.dataset.state = 'open';
+      box.innerHTML = '<div class="callout c-abstract ai-panel"><div class="c-head"><span class="c-ico">🤖</span><span class="c-title">ИИ-наставник</span></div><div class="c-body">'
+        + '<p class="small">Ты работаешь над задачей уже ' + st.minutes + ' мин и открыл все подсказки. Нейросеть посмотрит твой код и последнюю проверку и подскажет, где искать ошибку, — но решение не напишет.</p>'
+        + '<textarea class="ai-q" rows="2" placeholder="Что именно непонятно? (необязательно)"></textarea>'
+        + '<div class="row" style="margin-top:8px"><button class="btn primary sm act-ai" type="button">Спросить наставника</button><button class="btn ghost sm act-ai-cfg" type="button">⚙ Настройки нейросети</button></div>'
+        + '<div class="ai-cfg" hidden></div><div class="ai-answer"></div></div></div>';
+      $('.act-ai-cfg', box).onclick = function () { var c = $('.ai-cfg', box); c.hidden = !c.hidden; if (!c.innerHTML) { c.innerHTML = AI.settingsHtml(); AI.bindSettings(c); } };
+      $('.act-ai', box).onclick = async function () {
+        var btn = this, out = $('.ai-answer', box);
+        var tmp = document.createElement('div'); tmp.innerHTML = t.text;
+        aiBusy = true; btn.disabled = true;
+        out.innerHTML = '<p class="small muted"><span class="spin"></span> <span class="ai-prog">Готовлю вопрос…</span></p>';
+        try {
+          var ans = await AI.ask(key, { task: tmp.innerText, code: getCode(), result: lastResult, question: $('.ai-q', box).value.trim() }, function (m) { var p = $('.ai-prog', out); if (p) p.textContent = m; });
+          out.innerHTML = '<div class="ai-text">' + AI.render(ans) + '</div><p class="small muted">Подсказка нейросети может ошибаться. Проверь её мысль сам — в отладчике или на маленьком тесте.</p>';
+          enhance(out);
+        } catch (e) {
+          out.innerHTML = '<div class="notice bad small">' + esc(e.message || String(e)) + '</div>';
+        } finally { aiBusy = false; btn.disabled = false; }
+      };
     }
     $('.act-check', card).onclick = doCheck;
     $('.act-run', card).onclick = function () { $('.stdin-box', card).classList.toggle('open'); };
@@ -585,6 +643,7 @@
       hintN++; hb.textContent = hintN < t.hints.length ? '💡 Ещё подсказка (' + (t.hints.length - hintN) + ')' : '💡 Подсказок больше нет';
       if (hintN >= t.hints.length) hb.disabled = true;
       enhance(card);
+      updAI();
     };
     $('.act-sol', card).onclick = function () {
       if (!solved && fails < 3) { toast('Решение откроется после 3 неудачных проверок. Попробуй ещё — или возьми подсказку'); return; }
@@ -766,6 +825,7 @@
     if (!S.storageOk()) h += '<div class="notice bad">Браузер не даёт сохранять данные (приватный режим?). Прогресс пропадёт после закрытия вкладки — сохрани его в файл.</div>';
     h += '<div class="card"><h2 style="margin-top:0">Резервная копия</h2><p class="muted">Прогресс хранится только в этом браузере. Сохраняй его в файл раз в неделю и при переходе на другой компьютер.</p><div class="row"><button class="btn primary" id="expBtn" type="button">⬇ Сохранить прогресс в файл</button><label class="btn" style="cursor:pointer">⬆ Загрузить из файла<input type="file" id="impFile" accept=".json,application/json" hidden></label><button class="btn ghost" id="resetBtn" type="button" style="color:var(--bad)">Сбросить весь прогресс</button></div></div>';
     h += '<h2>Активность</h2><div class="card">' + heatmap() + '</div>';
+    if (window.AI) h += '<h2>🤖 ИИ-наставник</h2><div class="card"><p class="muted" style="margin-top:0">Нейросеть подсказывает, только когда задача долго не получается: не меньше ' + AI.NEED_FAILS + ' неудачных проверок, все подсказки открыты и ' + AI.NEED_MIN + ' минут работы над задачей. Готовое решение она не пишет. Выбери, где ей работать:</p><div id="aiCfg"></div></div>';
     h += '<h2>Все уроки</h2><div class="table-wrap"><table class="sched"><thead><tr><th>Урок</th><th>Статус</th><th>Тест</th><th>Задачи</th><th>Ступень повторения</th><th>Следующее повторение</th></tr></thead><tbody>';
     C.modules.forEach(function (m) {
       h += '<tr><th colspan="6">Модуль ' + m.num + '. ' + esc(m.title) + '</th></tr>';
@@ -780,6 +840,7 @@
     });
     h += '</tbody></table></div></div>';
     $main.innerHTML = h;
+    var aiCfg = $('#aiCfg'); if (aiCfg) { aiCfg.innerHTML = AI.settingsHtml(); AI.bindSettings(aiCfg); }
     $('#expBtn').onclick = function () {
       var blob = new Blob([S.exportData()], { type: 'application/json' });
       var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'c-course-progress-' + S.today() + '.json';

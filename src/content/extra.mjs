@@ -29,7 +29,9 @@ export default {
         { title: 'Тимофей Хирьянов (МФТИ) — «Курс молодого бойца» (язык Си)', url: 'https://www.youtube.com/playlist?list=PLRDzFCPr95fLjzcv6nNdjMu_9RcZgIM9U', note: '37 лекций: алгоритмическое мышление, массивы, сортировки, рекурсия, указатели, динамическая память.' },
         { title: 'Гоша Дударь — «Изучение языка Си для начинающих»', url: 'https://www.youtube.com/playlist?list=PL0lO_mIqDDFX2VcYQrDzrvYpzMVNexrp0', note: '9 коротких уроков — быстрый обзор языка за вечер.' },
         { title: 'Alek OS — «Основы программирования»', url: 'https://www.youtube.com/@AlekOS', note: 'Как работают отрицательные числа, плавающая точка, биты, кодировки, стек, сортировки — с анимацией.' },
-        { title: 'CS50 на русском (Гарвард)', url: 'https://www.youtube.com/watch?v=7fJ42lfCUXg', note: 'Легендарный вводный курс; лекции 1–5 — на языке C.' },
+        { title: 'CS50 (Гарвард) — лекции 2022 года на русском', url: 'https://www.youtube.com/playlist?list=PLc0jX6gu9QZyQKkg5-zrHNFs86IIKUz7x', note: 'Легендарный вводный курс; лекции 1–5 — на языке C. Фрагменты встроены в уроки.' },
+        { title: 'Константин Владимиров (МФТИ) — «Практика языка C»', url: 'https://www.youtube.com/playlist?list=PL3BR09unfgchRxdDws74aY4mlSk9eYGEs', note: 'Семинары первого курса МФТИ: Евклид, системы счисления, биты, сортировки, строки, файлы. Фрагменты встроены в уроки.' },
+        { title: 'Яндекс — «Тренировки по алгоритмам»', url: 'https://www.youtube.com/playlist?list=PL6Wui14DvQPySdPv5NUqV3i8sDbHkCKC5', note: 'Лекции по алгоритмам: сложность, двоичный поиск, сортировки. Когда освоишь C — следующий шаг.' },
       ],
     },
     {
@@ -46,6 +48,11 @@ export default {
     {
       group: 'Учебники и справочники',
       items: [
+        { title: 'Яндекс Хендбук «Основы алгоритмов»', url: 'https://education.yandex.ru/handbook/algorithms', note: 'Бесплатный учебник Академии Яндекса с задачами и автопроверкой.' },
+        { title: 'Яндекс Хендбук «Основы C++»', url: 'https://education.yandex.ru/handbook/cpp', note: 'Если после C захочется C++ — бесплатный учебник Яндекса.' },
+        { title: 'MIT 6.087 «Practical Programming in C»', url: 'https://ocw.mit.edu/courses/6-087-practical-programming-in-c-january-iap-2010/pages/lecture-notes/', note: 'Конспекты и лабораторные MIT (англ.), оттуда задача «Жизнь».' },
+        { title: 'CS50x — задачи (psets)', url: 'https://cs50.harvard.edu/x/2026/psets/', note: 'Mario, Credit, Readability, Caesar и другие — по их мотивам сделаны прикладные задачи курса.' },
+        { title: 'Яндекс Практикум: подготовка к алгоритмическому собеседованию', url: 'https://practicum.yandex.ru/algorithms-interview/', note: 'Бесплатный курс.' },
         { title: 'Metanit: «Руководство по языку C»', url: 'https://metanit.com/c/tutorial/', note: 'Подробный бесплатный учебник на русском — удобно читать параллельно с уроками.' },
         { title: 'Викиучебник: «Язык Си в примерах»', url: 'https://ru.wikibooks.org/wiki/%D0%AF%D0%B7%D1%8B%D0%BA_%D0%A1%D0%B8_%D0%B2_%D0%BF%D1%80%D0%B8%D0%BC%D0%B5%D1%80%D0%B0%D1%85', note: 'Короткие разобранные программы.' },
         { title: 'cppreference — раздел C', url: 'https://en.cppreference.com/w/c', note: 'Точный справочник по стандартной библиотеке (`printf`, `string.h`, `stdio.h`).' },
